@@ -12,7 +12,9 @@
   "description": "",
   "dependencies": {
     "nodemon": "^3.1.9",
-    "puppeteer": "^24.3.0"
+    "puppeteer": "^24.16.2",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "type": "module"
 }

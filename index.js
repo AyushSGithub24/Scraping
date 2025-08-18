@@ -1,56 +1,166 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs";
-let chapters={};
-const ChapterListURL="https://manhuatop.org/manhua/infinite-mage/";
-const getChapter = async () => {
 
-    const browser = await puppeteer.launch({
-      headless: false,
-      defaultViewport: null,
-    });
 
+puppeteer.use(StealthPlugin());
+
+const CHAPTER_LIST_URL = "https://manhuatop.org/manhua/sssclass-suicide-hunter/";
+const CHAPTER_LIST_SELECTOR = ".wp-manga-chapter";
+
+/**
+ * Launch Puppeteer
+ */
+async function launchBrowser() {
+  return puppeteer.launch({
+    headless: false,
+    defaultViewport: null,
+     executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe"
+  });
+}
+
+/**
+ * Scrape all chapters (name + link)
+ */
+async function scrapeChapters(url, selector) {
+  const browser = await launchBrowser();
+  let chapterData = [];
+
+  try {
     const page = await browser.newPage();
-  
-    await page.goto(ChapterListURL, {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(selector, { timeout: 30000 });
 
-    chapters=await page.evaluate(()=>{
-        const chapterclass=document.querySelectorAll(".wp-manga-chapter");
-        let chapterMap={};
-        for(let i of chapterclass){
-        const nameAndLink=i.querySelector("a");
-        let name=nameAndLink.innerText;
-        let link=nameAndLink.href;
-        let newStr = name.replace(/\s/g, '');
-            chapterMap[newStr]=link
-        }
-        return chapterMap;
-    })
-   
-//  console.log(chapters);
-
-    // Close the browser
+    chapterData = await page.evaluate((sel) => {
+      const chapterElements = document.querySelectorAll(sel);
+      return Array.from(chapterElements).map((el) => {
+        const anchor = el.querySelector("a");
+        return {
+          name: anchor?.textContent.trim() || "Unknown",
+          link: anchor?.href || "",
+        };
+      });
+    }, selector);
+  } catch (error) {
+    console.error("❌ Scraping failed:", error);
+  } finally {
     await browser.close();
-  };
+  }
 
-
-  
-async function main() {
-    await getChapter();
-    const dataString = JSON.stringify(chapters, null, 2); 
-   WriteFileCustom(dataString)
-
+  return chapterData;
 }
 
-export default async function WriteFileCustom(dataString,fileName) {
-    try {
-        fs.writeFileSync(`${fileName}.txt`, dataString);
-        // console.log('File has been written successfully.');
-    } catch (err) {
-        console.error('Error writing file:', err);
+/**
+ * Save JSON to file
+ */
+export default function saveToFile(data, fileName) {
+  try {
+    const jsonData = JSON.stringify(data, null, 2);
+    fs.writeFileSync(`${fileName}.txt`, jsonData);
+    console.log(`✅ File written: ${fileName}.txt`);
+  } catch (err) {
+    console.error("❌ Error writing file:", err);
+  }
+}
+
+/**
+ * Get all chapter images
+ */
+async function getImageUrls(chapters) {
+  const browser = await launchBrowser();
+  let chaptersImageUrls = [];
+
+  try {
+    for (let i = 0; i < chapters.length; i++) {
+      const chapter = chapters[i];
+      const chapterData = await getChapterImages(browser, chapter.link, chapter.name);
+      chaptersImageUrls.push(chapterData);
     }
+  } catch (e) {
+    console.error("❌ Image scraping failed:", e);
+  } finally {
+    await browser.close();
+  }
+
+  return chaptersImageUrls;
 }
 
+/**
+ * Scrape images from a single chapter
+ */
+async function getChapterImages(browser, url, chapterName) {
+  const page = await browser.newPage();
+  let chapterImages = [];
 
-main()
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    const requestUrl = request.url();
+    if (requestUrl.endsWith("1.jpg")) {
+      chapterImages.push(requestUrl);
+    }
+    request.continue();
+  });
+
+  await page.goto(url, { waitUntil: "domcontentloaded" }); // wait for all requests
+  await setTimeout(()=>{},5000)// small buffer
+  await page.close();
+
+  if (chapterImages.length > 0) {
+    await getAllImages(chapterImages[0], chapterImages);
+  }
+
+  return { chapterName, images: chapterImages };
+}
+
+/**
+ * Generate all images from 1.jpg base
+ */
+async function getAllImages(baseUrl, chapterImages) {
+  const basePath = baseUrl.replace("1.jpg", "");
+  for (let i = 2; ; i++) {
+    const imageUrl = `${basePath}${i}.jpg`;
+    if (await checkImageExists(imageUrl)) {
+      chapterImages.push(imageUrl);
+    } else {
+      break;
+    }
+  }
+}
+
+/**
+ * Check if image exists
+ */
+async function checkImageExists(imageUrl) {
+  try {
+    const response = await fetch(imageUrl, { method: "HEAD" });
+    return response.status === 200;
+  } catch (error) {
+    console.error(`Error fetching ${imageUrl}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Main
+ */
+async function main() {
+  console.log("⏳ Starting scrape...");
+  let chapters = await scrapeChapters(CHAPTER_LIST_URL, CHAPTER_LIST_SELECTOR);
+
+  // Sort numerically
+  chapters = chapters.sort((a, b) => {
+    const numA = parseFloat(a.name.match(/[\d.]+/));
+    const numB = parseFloat(b.name.match(/[\d.]+/));
+    return numA - numB;
+  });
+
+  // Get images for each chapter
+  const chaptersWithImages = await getImageUrls(chapters.slice(0, 5)); // first 5 chapters
+
+  // Save result
+  saveToFile(chaptersWithImages, "sssclass-suicide-hunter");
+
+  console.log("✅ Done.");
+}
+
+main();
