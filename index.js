@@ -164,3 +164,13 @@ async function main() {
 }
 
 main();
+
+/*
+working image and audio code
+
+Step 1: Get the audio duration
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "D:\Ayush\Web\Projects\scraping\Scraping\text-extraction-service\output\Chapter_1\panel_6.mp3"
+
+Step 2: Use the duration in FFmpeg command (replace 173.42 with your actual duration):
+ffmpeg -loop 1 -i "D:\Ayush\Web\Projects\scraping\Scraping\video-generation-service\downloaded_images\downloaded_image.jpg" -i "D:\Ayush\Web\Projects\scraping\Scraping\text-extraction-voice-service\output\Chapter_1\panel_6.mp3" -filter_complex "[0:v]scale=1280:-1[scaled];[scaled]crop=1280:720:0:'t*((ih-720)/173.42)'[cropped];[cropped]format=yuv420p[v]" -map "[v]" -map 1:a -c:v libx264 -preset slow -crf 18 -c:a aac -b:a 128k -shortest "output2.mp4"
+*/

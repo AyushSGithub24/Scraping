@@ -85,8 +85,10 @@ async function processImage(imageUrl, outputAudioPath) {
       });
     });
 
-    console.log(`-- Audio saved for ${imageUrl} -> ${outputAudioPath}`);
-    return { imageUrl, narration: narrationText, audioPath: outputAudioPath };
+    const absoluteAudioPath = path.resolve(outputAudioPath);
+
+    console.log(`-- Audio saved for ${imageUrl} -> ${absoluteAudioPath}`);
+    return { imageUrl, narration: narrationText, audioPath: absoluteAudioPath };
   } catch (error) {
     console.error(`❌ Failed to process image ${imageUrl}:`, error.message);
     return { imageUrl, narration: "Error", audioPath: null };
