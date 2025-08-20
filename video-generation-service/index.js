@@ -1,25 +1,11 @@
-const ffmpeg = require("fluent-ffmpeg");
 const fs = require("fs");
 const util=require("util");
-const axios=require("axios");
 const path = require("path");
-const { getAudioDurationInSeconds } = require("get-audio-duration");
-const { imageSize } = require("image-size");
-
-const ffmpegPath=require('@ffmpeg-installer/ffmpeg').path
-
-const ffprobePath=require('@ffprobe-installer/ffprobe').path;
-
-
-
-ffmpeg.setFfmpegPath(ffmpegPath)
-ffmpeg.setFfprobePath(ffprobePath)
+const { spawn,exec } = require("child_process");
+const execAsync = util.promisify(exec);
 
 const DATA="../text-extraction-voice-service/output/PanelWiseChapterDialog.json";
 
-
-// Promisify the image-size function for async/await usage
-const sizeOf = util.promisify(imageSize);
 
 /**
  * 1. THE CORE FUNCTION: Creates a vertically panned video clip.
@@ -34,81 +20,90 @@ async function createPannedClip(imageUrl, audioPath, outputPath) {
   fs.mkdirSync(tempImageDir, { recursive: true });
   const tempImagePath = path.join(tempImageDir, path.basename(imageUrl));
 
+  await downloadImage(imageUrl,tempImagePath);
+  const audioDuration=await getAudioDuration(audioPath);
+
+  await runFFmpeg(tempImagePath,audioPath,audioDuration,outputPath);
+
+  return outputPath;
+
+  
+}
+async function getAudioDuration(audioPath) {
+        try {
+            const { stdout } = await execAsync(
+                `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
+            );
+            return parseFloat(stdout.trim());
+        } catch (error) {
+            console.error(`❌ Error getting duration for ${audioPath}:`, error.message);
+            throw error;
+        }
+}
+
+async function runFFmpeg(imagePath,audioPath,audioDuration,outputPath) {
+  return new Promise((resolve, reject) => {
+    const ffmpeg = spawn("ffmpeg", [
+      "-loop", "1",
+      "-i", `${imagePath}`,
+      "-i", `${audioPath}`,
+      "-filter_complex", `[0:v]scale=1280:-1,crop=1280:720:0:t*((ih-720)/${audioDuration}),format=yuv420p[v]`,
+      "-map", "[v]", "-map", "1:a",
+      "-c:v", "h264_qsv", "-preset", "fast", "-b:v", "5M",
+      "-c:a", "aac", "-b:a", "128k",
+      "-shortest",
+      `${outputPath}`
+    ]);
+
+    // Capture logs
+    ffmpeg.stderr.on("data", (data) => {
+      console.log(`FFmpeg log: ${data}`);
+    });
+
+    // When finished
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        console.log("✅ Video processing completed successfully!");
+        resolve();
+      } else {
+        reject(new Error(`❌ FFmpeg exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+
+
+
+
+
+async function downloadImage(imageUrl, savePath) {
   try {
-    // STEP A: Download the image to a temporary file
-    console.log(`-- 📥 Downloading image: ${path.basename(imageUrl)}`);
-    const response=await fetch(imageUrl,{
-        method:"GET"
-    })
+    const response = await fetch(imageUrl, {
+      method: "GET",
+    });
+
     if (!response.ok) {
-        throw new Error(`Failed to download image. Status: ${response.status}`);
+      throw new Error(`Failed to download image. Status: ${response.status}`);
     }
+
+    // Get the image data as a Buffer
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
+
     // Write the buffer to a local file
-    await fs.promises.writeFile(tempImagePath, buffer);
-   
-
-    // STEP B: Get all necessary media information
-    const audioDuration = await getAudioDurationInSeconds(audioPath);
-    const dimensions = await sizeOf(tempImagePath);
-    const imageHeight = dimensions.height;
-    
-    // We'll create a standard 16:9 video frame (e.g., 1920x1080).
-    // Let's set the output frame height.
-    const frameHeight = 1080; 
-
-    console.log(`-- 🎬 Creating panned clip (${audioDuration.toFixed(2)}s)`);
-
-    // STEP C: Build and run the FFmpeg command
-    return new Promise((resolve, reject) => {
-      // This complex filter creates the slow pan-down effect.
-      // It crops the tall image into a 1080p frame and animates the 'y' position
-      // from the top (0) to the bottom (imageHeight - frameHeight) over the audio's duration.
-      const cropFilter = `crop=w=iw:h=${frameHeight}:x=0:y='(ih-${frameHeight})*(t/${audioDuration})'`;
-
-      ffmpeg()
-        .input(tempImagePath) // The downloaded image
-        .inputFPS(24)
-        .input(audioPath)     // The narration audio
-        .complexFilter([
-          // First, we ensure the image width is an even number (required by some codecs)
-          { filter: 'scale', options: 'trunc(iw/2)*2:ih', inputs: '0:v', outputs: 'scaled' },
-          // Then, we apply our animated crop filter
-          { filter: cropFilter, inputs: 'scaled', outputs: 'cropped' }
-        ])
-        .outputOptions([
-          '-map [cropped]',    // Use the output of our filter as the video stream
-          '-map 1:a',          // Use the second input (audioPath) as the audio stream
-          '-c:v libx264',      // A standard high-quality video codec
-          '-preset medium',
-          '-crf 23',
-          '-c:a aac',          // A standard audio codec
-          '-movflags +faststart',
-          '-shortest'          // Ensures the video ends exactly when the audio does
-        ])
-        .toFormat('mp4')
-        .save(outputPath)
-        .on('end', () => {
-          console.log(`-- ✅ Clip saved: ${path.basename(outputPath)}`);
-          resolve(outputPath); // Resolve the promise when done
-        })
-        .on('error', (err) => {
-          console.error(`-- ❌ FFmpeg error:`, err.message);
-          reject(err);
-        });
-    });
-  } catch (error) {
-    console.error(`-- ❌ Failed to process clip for ${imageUrl}:`, error);
-    throw error; // Propagate the error up
-  } finally {
-    // STEP D: Clean up the temporary downloaded image
-    if (fs.existsSync(tempImagePath)) {
-      await fs.promises.unlink(tempImagePath);
-    }
+    await fs.promises.writeFile(savePath, buffer);
+    console.log(`Image downloaded successfully to ${savePath}`);
+  } catch (err) {
+    console.error(`❌ Failed to download ${imageUrl}:`, err.message);
+    throw err;
   }
 }
+
 
 /**
  * 2. THE CONCATENATOR: Stitches multiple video clips together.
@@ -121,15 +116,31 @@ async function concatenateClips(clipPaths, finalVideoPath) {
         return;
     }
     console.log(`\n🎞️ Stitching ${clipPaths.length} clips together...`);
-    return new Promise((resolve, reject) => {
-        const merger = ffmpeg();
-        clipPaths.forEach(clip => merger.input(clip));
         
-        merger
-          .on('end', () => resolve())
-          .on('error', (err) => reject(err))
-          .mergeToFile(finalVideoPath, path.join("temp", "merging"));
-      });
+     // Create a temp folder for concat list
+    const tempDir = path.join("temp", "concat");
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const fileListPath = path.join(tempDir, "video_list.txt");
+
+    // Generate file list for ffmpeg
+    const fileList = clipPaths
+        .map(clipPath => `file '${path.resolve(clipPath)}'`)
+        .join("\n");
+
+    await fs.promises.writeFile(fileListPath, fileList);
+
+        
+        const concatCmd = [
+            'ffmpeg', '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', `"${fileListPath}"`,
+            '-c', 'copy',
+            `"${finalVideoPath}"`
+        ].join(' ');
+        
+        await execAsync(concatCmd);
 }
 
 
@@ -139,7 +150,7 @@ async function concatenateClips(clipPaths, finalVideoPath) {
 async function main() {
   try {
     const data = JSON.parse(fs.readFileSync(DATA, "utf-8"));
-
+    const BATCH_SIZE = 3; 
     for (const chapter of data) {
       const chapterNameSafe = chapter.chapterName.replace(/[^a-z0-9]/gi, '_');
       const tempClipDir = path.join("temp", "clips", chapterNameSafe);
@@ -150,24 +161,44 @@ async function main() {
       console.log(`\n\n🎬🎬🎬 Starting video creation for: ${chapter.chapterName} 🎬🎬🎬`);
       
       // We will process clips sequentially to avoid overwhelming the system
-      for (let i = 0; i < chapter.images.length; i++) {
-        const panel = chapter.images[i];
-        if (!panel.audioPath || !panel.imageUrl) continue;
+      for (let i = 0; i < chapter.images.length; i+=BATCH_SIZE) {
+        const batch = chapter.images.slice(i, i + BATCH_SIZE);
+        console.log(`\n🔥 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}... (Panels ${i + 1} to ${i + batch.length})`);
+        // 1. Create an array of promises for the current batch
+                const batchPromises = batch.map(panel => {
+                    if (!panel.audioPath || !panel.imageUrl) {
+                        return Promise.resolve(null); // Skip invalid panels
+                    }
 
-        const panelNumber = path.basename(panel.audioPath, '.mp3');
-        const clipPath = path.join(tempClipDir, `${panelNumber}.mp4`);
+                    const panelNumber = path.basename(panel.audioPath, '.mp3');
+                    const clipPath = path.join(tempClipDir, `${panelNumber}.mp4`);
+                    
+                    // Return the promise, DON'T await it here.
+                    // We add a .catch to handle individual promise failures,
+                    // so one failed clip doesn't stop the whole batch.
+                    return createPannedClip(panel.imageUrl, panel.audioPath, clipPath)
+                        .catch(err => {
+                            console.error(`❌ Error processing panel ${panelNumber}:`, err.message);
+                            return null; // Return null on failure
+                        });
+                });
+
+               // 2. Wait for all promises in the current batch to settle
+                const resultsFromBatch = await Promise.all(batchPromises);
+
+                // 3. Collect the valid paths from the completed batch
+                // The .filter(Boolean) removes any 'null' values from failed or skipped promises
+                createdClipPaths.push(...resultsFromBatch.filter(Boolean));
         
-        try {
-            await createPannedClip(panel.imageUrl, panel.audioPath, clipPath);
-            createdClipPaths.push(clipPath);
-        } catch(e) {
-            console.log(`Skipping panel ${panelNumber} due to an error.`);
-        }
       }
+
+      console.log("\n✅ All batches processed. Generated clips:");
+      console.log(createdClipPaths);
       
       // Concatenate all the generated clips for this chapter
-    //   const finalVideoPath = path.join("output", `${chapterNameSafe}.mp4`);
-    //   await concatenateClips(createdClipPaths, finalVideoPath);
+      const finalVideoPath = path.join("output", `${chapterNameSafe}.mp4`);
+      await concatenateClips(createdClipPaths, finalVideoPath);
+
 
       console.log(`✅✅✅ Final video saved for ${chapter.chapterName}: ${finalVideoPath} ✅✅✅`);
       
@@ -180,12 +211,26 @@ async function main() {
     console.error("❌ A critical error occurred in the main process:", err);
   } finally {
       // Clean up all temporary files
-    //   if (fs.existsSync('temp')) {
-    //     fs.rmSync('temp', { recursive: true, force: true });
-    //     console.log("\n🧹 Cleaned up all temporary files.")
-    //   }
+      if (fs.existsSync('temp')) {
+        fs.rmSync('temp', { recursive: true, force: true });
+        console.log("\n🧹 Cleaned up all temporary files.")
+      }
   }
 }
 
 
 main();
+
+
+
+/*
+
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "D:\Ayush\Web\Projects\scraping\Scraping\text-extraction-voice-service\output\Chapter_1\panel_9.mp3"
+
+ffmpeg -loop 1 -i "D:\Ayush\Web\Projects\scraping\Scraping\video-generation-service\downloaded_images\downloaded_image.jpg" -i "D:\Ayush\Web\Projects\scraping\Scraping\text-extraction-voice-service\output\Chapter_1\panel_9.mp3" `
+-filter_complex "[0:v]scale=1280:-1,crop=1280:720:0:`"t*((ih-720)/96.984)`",format=yuv420p[v]" `
+-map "[v]" -map 1:a `
+-c:v h264_qsv -preset fast -b:v 5M `
+-c:a aac -b:a 128k -shortest "output.mp4"
+
+*/

@@ -52,7 +52,7 @@ async function processImage(imageUrl, outputAudioPath) {
   try {
     const apiKey = process.env.apiKey;
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `You are a comic book analyst. Extract all dialogue and narrative text from this image and describe the scene. Return the text in reading order as a single, coherent string. If there is no text, return an empty string. if don't start like here is the extracted text from scene description or reference image make it like a movie script continous with scene and dialogs`;
+    const prompt = `You are a comic book analyst. Extract all dialogue and narrative text from this image and describe the scene. Return the text in reading order as a single, coherent string. If there is no text, return an empty string.  don't start like here is the extracted text from scene description or reference image make it like a movie script continous with scene and dialogs`;
     const response = await fetch(imageUrl);
     const imageArrayBuffer = await response.arrayBuffer();
     const base64ImageData = Buffer.from(imageArrayBuffer).toString("base64");
