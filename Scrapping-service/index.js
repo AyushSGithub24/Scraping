@@ -144,6 +144,7 @@ async function checkImageExists(imageUrl) {
  * Main
  */
 async function main() {
+  
   console.log("⏳ Starting scrape...");
   let chapters = await scrapeChapters(CHAPTER_LIST_URL, CHAPTER_LIST_SELECTOR);
 

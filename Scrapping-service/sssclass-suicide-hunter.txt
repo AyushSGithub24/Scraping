@@ -1,0 +1,18 @@
+[
+  {
+    "chapterName": "Chapter 2",
+    "images": [
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_2.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_3.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_4.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_5.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_6.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_7.jpg", 
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_8.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_9.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_10.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_11.jpg",
+      "https://s2.manhuatop.org/manga_dc178fa9b5d957ed1a329b10f535b396/chapter_1/ch_1_12.jpg"
+    ]
+  }
+]

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WebComic Narrate</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="hero-section">
+      <h1>Comic Narrate</h1>
+      <p class="subtitle">Transform your favorite comics into engaging video narratives</p>
+    </div>
+
+    <div class="search-section">
+      <div class="input-group">
+        <label for="input">Search Comics</label>
+        <input id="input" type="text" placeholder="Enter Webcomic name (e.g. Infinite Mage, sss class suicide hunter)" />
+        <div id="suggest"></div>
+      </div>
+
+      <div class="input-group hidden" id="chapter-filter-group">
+        <label for="chapter_input">Filter Chapters</label>
+        <input id="chapter_input" type="text" placeholder="Enter chapter number or keyword" />
+      </div>
+    </div>
+
+    <div class="chapter-section hidden" id="chapter-section">
+      <div class="section-title">Select Chapter</div>
+      <p class="instruction-text">Choose one chapter to generate your video narrative</p>
+      <div id="body"></div>
+    </div>
+
+    <div class="generate-section hidden" id="generate-section">
+      <button class="generate-btn" id="generateBtn">
+        <span class="btn-text">Generate Video</span>
+      </button>
+    </div>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

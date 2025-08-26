@@ -1,20 +1,27 @@
 {
   "name": "scraping",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "ComicNarrate is a project that automates the process of extracting comics from websites, generating descriptions, creating voiceovers, and producing videos for YouTube.",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AyushSGithub24/Scraping.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "nodemon": "^3.1.9",
-    "puppeteer": "^24.16.2",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/AyushSGithub24/Scraping/issues"
   },
-  "type": "module"
+  "homepage": "https://github.com/AyushSGithub24/Scraping#readme",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "path": "^0.12.7"
+  }
 }

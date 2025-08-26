@@ -4,7 +4,7 @@ const path = require("path");
 const { spawn,exec } = require("child_process");
 const execAsync = util.promisify(exec);
 
-const DATA="../text-extraction-voice-service/output/PanelWiseChapterDialog.json";
+const DATA="D:\\Ayush\\Web\\Projects\\scraping\\Scraping\\text-extraction-voice-service\\output\\PanelWiseChapterDialog.json";
 
 
 /**
@@ -30,15 +30,15 @@ async function createPannedClip(imageUrl, audioPath, outputPath) {
   
 }
 async function getAudioDuration(audioPath) {
-        try {
-            const { stdout } = await execAsync(
-                `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
-            );
-            return parseFloat(stdout.trim());
-        } catch (error) {
-            console.error(`❌ Error getting duration for ${audioPath}:`, error.message);
-            throw error;
-        }
+    try {
+        const { stdout } = await execAsync(
+          `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
+        );
+        return parseFloat(stdout.trim());
+    } catch (error) {
+        console.error(`❌ Error getting duration for ${audioPath}:`, error.message);
+        throw error;
+    }
 }
 
 async function runFFmpeg(imagePath,audioPath,audioDuration,outputPath) {
@@ -150,6 +150,7 @@ async function concatenateClips(clipPaths, finalVideoPath) {
 async function main() {
   try {
     const data = JSON.parse(fs.readFileSync(DATA, "utf-8"));
+    fs.mkdirSync("output");
     const BATCH_SIZE = 3; 
     for (const chapter of data) {
       const chapterNameSafe = chapter.chapterName.replace(/[^a-z0-9]/gi, '_');
@@ -202,19 +203,19 @@ async function main() {
 
       console.log(`✅✅✅ Final video saved for ${chapter.chapterName}: ${finalVideoPath} ✅✅✅`);
       
-      // Clean up the individual clips after merging
-      if (fs.existsSync(tempClipDir)) {
-        fs.rmSync(tempClipDir, { recursive: true, force: true });
-      }
+      // // Clean up the individual clips after merging
+      // if (fs.existsSync(tempClipDir)) {
+      //   fs.rmSync(tempClipDir, { recursive: true, force: true });
+      // }
     }
   } catch (err) {
     console.error("❌ A critical error occurred in the main process:", err);
   } finally {
       // Clean up all temporary files
-      if (fs.existsSync('temp')) {
-        fs.rmSync('temp', { recursive: true, force: true });
-        console.log("\n🧹 Cleaned up all temporary files.")
-      }
+      // if (fs.existsSync('temp')) {
+      //   fs.rmSync('temp', { recursive: true, force: true });
+      //   console.log("\n🧹 Cleaned up all temporary files.")
+      // }
   }
 }
 
