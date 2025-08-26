@@ -2,18 +2,12 @@
 
 ComicNarrate is a project that automates the process of extracting comics from websites, generating descriptions, creating voiceovers, and producing videos for YouTube.  
 
-## 🚀 Features  
-- 🌐 **Web Scraping**: Uses Node.js and Puppeteer to extract comic images from websites. ✅ (Completed)  
-- 📝 **Description Generation**: Uses Python and NLP to extract and generate a description of the comic. ✅ (Completed)  
-- 🔊 **Voiceover Generation**: Uses Google Text-to-Speech (gTTS) to convert the description into audio. ⏳ (In Progress)  
-- 🎬 **Video Creation**: Uses Python to generate a video combining comic images, text, and voiceover. ⏳ (Pending)  
-- 📤 **YouTube Upload**: Automates video upload to YouTube. ⏳ (Pending)  
 
 ## 🛠️ Tech Stack  
 - **Node.js & Puppeteer**: Web scraping  
 - **Python & NLP**: Description generation  
-- **Google Text-to-Speech (gTTS)**: Voiceover  
-- **Python & OpenCV/PIL**: Video creation  
+- **Pyttsx3**: Voiceover  
+- **FFMPEG**: Video creation  
 - **YouTube API**: Uploading videos  
 
 ## 📦 Installation  
@@ -29,7 +23,7 @@ ComicNarrate is a project that automates the process of extracting comics from w
      ```  
    - **Python dependencies:**  
      ```bash
-     pip install gtts opencv-python youtube-upload
+     pip install pyttsx3
      ```  
 
 ## 🔥 Usage  
