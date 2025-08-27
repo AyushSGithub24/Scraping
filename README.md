@@ -12,6 +12,13 @@ This project converts **comic chapters into narrated videos** using scraping, te
 * Job queue system using **BullMQ + Redis**
 * Frontend for submitting comic URLs and downloading final videos
 * Progress tracking for long-running jobs
+---
+
+## 🎥 Demo Video
+
+Check out a generated sample video here:  
+👉 [Watch on YouTube](https://www.youtube.com/watch?v=aTSPIdDlEs8)
+
 
 ---
 
@@ -50,8 +57,8 @@ This project converts **comic chapters into narrated videos** using scraping, te
 ### 1. Clone the Repo
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/AyushSGithub24/WebComic-Narration.git
+cd WebComic-Narration
 ```
 
 ### 2. Install Dependencies
