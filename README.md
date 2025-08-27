@@ -17,7 +17,7 @@ This project converts **comic chapters into narrated videos** using scraping, te
 ## 🎥 Demo Video
 
 Check out a generated sample video here:  
-👉 [Watch on YouTube](https://www.youtube.com/watch?v=aTSPIdDlEs8)
+[![Comic-to-Video Demo](https://img.youtube.com/vi/aTSPIdDlEs8/0.jpg)](https://www.youtube.com/watch?v=aTSPIdDlEs8)
 
 
 ---
