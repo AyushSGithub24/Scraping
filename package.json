@@ -19,8 +19,10 @@
   },
   "homepage": "https://github.com/AyushSGithub24/Scraping#readme",
   "dependencies": {
+    "bullmq": "^5.58.2",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "ioredis": "^5.7.0",
     "node-fetch": "^3.3.2",
     "path": "^0.12.7"
   }

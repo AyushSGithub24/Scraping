@@ -1,11 +1,21 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { Worker, Queue } from "bullmq";
 import fs from "fs";
+import IORedis from "ioredis";
+const redis = new IORedis({ host: "127.0.0.1", port: 6379 });
 
+async function updatePipelineStatus(parentJobId, step, progress, message) {
+  await redis.hmset(`video_pipeline:${parentJobId}`, {
+    step,
+    progress,
+    message
+  });
+}
 
 puppeteer.use(StealthPlugin());
 
-const CHAPTER_LIST_URL = "https://manhuatop.org/manhua/sssclass-suicide-hunter/";
+// const CHAPTER_LIST_URL = "https://manhuatop.org/manhua/sssclass-suicide-hunter/";
 const CHAPTER_LIST_SELECTOR = ".wp-manga-chapter";
 
 /**
@@ -15,7 +25,7 @@ async function launchBrowser() {
   return puppeteer.launch({
     headless: false,
     defaultViewport: null,
-     executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe"
+    executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
   });
 }
 
@@ -73,7 +83,11 @@ async function getImageUrls(chapters) {
   try {
     for (let i = 0; i < chapters.length; i++) {
       const chapter = chapters[i];
-      const chapterData = await getChapterImages(browser, chapter.link, chapter.name);
+      const chapterData = await getChapterImages(
+        browser,
+        chapter.link,
+        chapter.name
+      );
       chaptersImageUrls.push(chapterData);
     }
   } catch (e) {
@@ -102,7 +116,7 @@ async function getChapterImages(browser, url, chapterName) {
   });
 
   await page.goto(url, { waitUntil: "domcontentloaded" }); // wait for all requests
-  await setTimeout(()=>{},5000)// small buffer
+  await setTimeout(() => {}, 5000); // small buffer
   await page.close();
 
   if (chapterImages.length > 0) {
@@ -143,8 +157,7 @@ async function checkImageExists(imageUrl) {
 /**
  * Main
  */
-async function main() {
-  
+async function main(CHAPTER_LIST_URL, chapterNumber) {
   console.log("⏳ Starting scrape...");
   let chapters = await scrapeChapters(CHAPTER_LIST_URL, CHAPTER_LIST_SELECTOR);
 
@@ -156,15 +169,44 @@ async function main() {
   });
 
   // Get images for each chapter
-  const chaptersWithImages = await getImageUrls(chapters.slice(0, 5)); // first 5 chapters
-
+  const chaptersWithImages = await getImageUrls([chapters[chapterNumber - 1]]); // first 5 chapters
+  // console.log(chaptersWithImages);
   // Save result
-  saveToFile(chaptersWithImages, "sssclass-suicide-hunter");
+  // saveToFile(chaptersWithImages, "sssclass-suicide-hunter");
 
   console.log("✅ Done.");
+  return chaptersWithImages;
 }
 
-main();
+const voiceQueue = new Queue("voice-generation", { connection: {
+      host: "127.0.0.1", // or "redis" if using docker-compose service name
+      port: 6379,
+    }, });
+
+new Worker(
+  "chapter-queue",
+  async (job) => {
+    console.log("Scaping Chapter for images" , job.data);
+    const parentJobId = job.id;
+    await updatePipelineStatus(parentJobId, "scraping", 10, "Scraping chapter started");
+
+    const url=job.data.url;
+    const chapterNumber=parseInt(job.data.chapterNumber.match(/[\d.]+/))
+    
+    const data=await main(url,chapterNumber);
+
+    await updatePipelineStatus(parentJobId, "scraping-done", 30, "Scraping completed");
+
+
+    return await voiceQueue.add("generate-voice", {data:data,parentJobId});
+  },
+  {
+    connection: {
+      host: "127.0.0.1", // or "redis" if using docker-compose service name
+      port: 6379,
+    },
+  }
+);
 
 /*
 working image and audio code

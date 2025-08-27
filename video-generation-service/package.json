@@ -11,12 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^2.1.2",
-    "axios": "^1.11.0",
-    "fluent-ffmpeg": "^2.1.3",
-    "get-audio-duration": "^4.0.1",
-    "image-size": "^2.0.2",
+    "bullmq": "^5.58.2",
+    "systeminformation": "^5.27.8",
     "utils": "^0.3.1"
   }
 }

@@ -3,8 +3,18 @@ const util=require("util");
 const path = require("path");
 const { spawn,exec } = require("child_process");
 const execAsync = util.promisify(exec);
+const si =require("systeminformation");
+const { Worker } = require("bullmq");
+const IORedis = require("ioredis");
+const redis = new IORedis({ host: "127.0.0.1", port: 6379 });
 
-const DATA="D:\\Ayush\\Web\\Projects\\scraping\\Scraping\\text-extraction-voice-service\\output\\PanelWiseChapterDialog.json";
+async function updatePipelineStatus(parentJobId, step, progress, message) {
+  await redis.hmset(`video_pipeline:${parentJobId}`, {
+    step,
+    progress,
+    message
+  });
+}
 
 
 /**
@@ -42,6 +52,8 @@ async function getAudioDuration(audioPath) {
 }
 
 async function runFFmpeg(imagePath,audioPath,audioDuration,outputPath) {
+   const vendor = await detectGpuVendor();
+  const encoder = getFfmpegEncoder(vendor);
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn("ffmpeg", [
       "-loop", "1",
@@ -49,7 +61,7 @@ async function runFFmpeg(imagePath,audioPath,audioDuration,outputPath) {
       "-i", `${audioPath}`,
       "-filter_complex", `[0:v]scale=1280:-1,crop=1280:720:0:t*((ih-720)/${audioDuration}),format=yuv420p[v]`,
       "-map", "[v]", "-map", "1:a",
-      "-c:v", "h264_qsv", "-preset", "fast", "-b:v", "5M",
+      "-c:v", encoder, "-preset", "fast", "-b:v", "5M",
       "-c:a", "aac", "-b:a", "128k",
       "-shortest",
       `${outputPath}`
@@ -76,6 +88,36 @@ async function runFFmpeg(imagePath,audioPath,audioDuration,outputPath) {
   });
 }
 
+async function detectGpuVendor() {
+  try {
+    const graphics = await si.graphics();
+    const gpus = graphics.controllers.map(g => g.vendor.toLowerCase());
+
+    if (gpus.some(v => v.includes("nvidia"))) {
+      return "nvidia";
+    } else if (gpus.some(v => v.includes("intel"))) {
+      return "intel";
+    } else if (gpus.some(v => v.includes("amd") || v.includes("advanced micro devices"))) {
+      return "amd"; // optional if you want to add support later
+    } else {
+      return "cpu";
+    }
+  } catch (err) {
+    console.error("Failed to detect GPU:", err);
+    return "cpu";
+  }
+}
+
+function getFfmpegEncoder(vendor) {
+  switch (vendor) {
+    case "nvidia":
+      return "h264_nvenc"; // or "hevc_nvenc"
+    case "intel":
+      return "h264_qsv";   // or "hevc_qsv"
+    default:
+      return "libx264";    // CPU fallback
+  }
+}
 
 
 
@@ -147,10 +189,10 @@ async function concatenateClips(clipPaths, finalVideoPath) {
 /**
  * 3. THE MAIN ORCHESTRATOR: Puts everything together.
  */
-async function main() {
+async function main(DATA) {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA, "utf-8"));
-    fs.mkdirSync("output");
+    const data = DATA;
+    fs.mkdirSync("output", { recursive: true });
     const BATCH_SIZE = 3; 
     for (const chapter of data) {
       const chapterNameSafe = chapter.chapterName.replace(/[^a-z0-9]/gi, '_');
@@ -207,6 +249,7 @@ async function main() {
       // if (fs.existsSync(tempClipDir)) {
       //   fs.rmSync(tempClipDir, { recursive: true, force: true });
       // }
+      return finalVideoPath;
     }
   } catch (err) {
     console.error("❌ A critical error occurred in the main process:", err);
@@ -219,8 +262,23 @@ async function main() {
   }
 }
 
-
-main();
+const worker = new Worker("video-generation",async(job)=>{
+  const parentJobId = job.data.parentJobId || job.id;
+  console.log("Processing Images" , job.data);
+  await updatePipelineStatus(parentJobId, "video", 80, "Video rendering started");
+  const data=await main(job.data.data);
+  console.log(data);
+   await updatePipelineStatus(parentJobId, "video-done", 100, "Video generation completed");
+   let url=data.split("\\");
+  return {url:url[url.length-1],parentJobId};
+},
+  {
+    connection: {
+      host: "127.0.0.1", // or "redis" if using docker-compose service name
+      port: 6379,
+    },
+  }
+)
 
 
 

@@ -5,15 +5,23 @@ import * as fs from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import removeMd from "remove-markdown";
+import { Worker, Queue } from "bullmq";
 const __dirname = path.resolve();
-async function main() {
-  try {
-    const data = await fs.promises.readFile(
-      "D:\\Ayush\\Web\\Projects\\scraping\\Scraping\\Scrapping-service\\sssclass-suicide-hunter.txt",
-      "utf-8"
-    );
-    const chapters = JSON.parse(data);
+import IORedis from "ioredis";
+const redis = new IORedis({ host: "127.0.0.1", port: 6379 });
 
+async function updatePipelineStatus(parentJobId, step, progress, message) {
+  await redis.hmset(`video_pipeline:${parentJobId}`, {
+    step,
+    progress,
+    message
+  });
+}
+
+
+async function main(data) {
+  try {
+    const chapters = data;
     const PanelWiseChapterDialog = [];
 
     for (let i = 0; i < chapters.length; i++) {
@@ -28,7 +36,7 @@ async function main() {
       );
       await fs.promises.mkdir(chapterDir, { recursive: true });
 
-      for (let j = 0; j < chapters[i].images.length; j++) {
+      for (let j = 1; j < chapters[i].images.length; j++) {
         const imageUrl = chapters[i].images[j];
         const outputAudioPath = path.join(chapterDir, `panel_${j + 1}.mp3`);
 
@@ -49,6 +57,7 @@ async function main() {
     console.log(
       "✅ Processing complete. Data saved to output/PanelWiseChapterDialog.json"
     );
+    return PanelWiseChapterDialog;
   } catch (err) {
     console.error("❌ Error reading file:", err);
   }
@@ -113,7 +122,13 @@ async function processImage(imageUrl, outputAudioPath) {
 function generateAudioWithPython(text, outputAudioPath) {
   return new Promise((resolve, reject) => {
     // Define the path to your Python script
-    const pythonScriptPath = path.join(__dirname, "main.py");
+    let pth=__dirname.split("\\");
+    let pythonScriptPath;
+    if(pth[pth.length-1]==="Scraping"){
+      pythonScriptPath = path.join(__dirname, "text-extraction-voice-service/main.py");
+    }else if(pth[pth.length-1]==="text-extraction-voice-service"){
+      pythonScriptPath = path.join(__dirname, "main.py");
+    }
 
     // Arguments to pass to the Python script
     const args = [pythonScriptPath, text, outputAudioPath];
@@ -150,4 +165,25 @@ function generateAudioWithPython(text, outputAudioPath) {
   });
 }
 
-main();
+const videoQueue = new Queue("video-generation", { connection: {
+      host: "127.0.0.1", // or "redis" if using docker-compose service name
+      port: 6379,
+    }, });
+
+new Worker("voice-generation",async(job)=>{
+   const parentJobId = job.data.parentJobId || job.id;
+     await updatePipelineStatus(parentJobId, "voice", 50, "Voice generation started");
+    console.log("Processing Images" , job.data);
+    // console.log(job.data.data)
+    const data=await main(job.data.data);
+    await updatePipelineStatus(parentJobId, "voice-done", 70, "Voice generation completed");
+
+  return await videoQueue.add("generate-voice", {data:data,parentJobId});
+},  
+{
+    connection: {
+      host: "127.0.0.1", // or "redis" if using docker-compose service name
+      port: 6379,
+    },
+  }
+)
