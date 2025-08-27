@@ -22,6 +22,25 @@ Check out a generated sample video here:
 
 ---
 
+
+
+## 📸 Screenshots
+
+### 🔹 Frontend UI  
+Simple web interface to enter comic URLs and generate videos.  
+
+<img width="1438" height="844" alt="image" src="https://github.com/user-attachments/assets/03d4ff58-88b9-4d1c-9cbc-b20a3e38ec80" />
+
+---
+
+### 🔹 Generated Video Output  
+Final narrated video created from comic images + voiceover.  
+
+<img width="1333" height="857" alt="image" src="https://github.com/user-attachments/assets/8bc26a47-c0e4-4fc3-b8ff-72b143e84f50" />
+
+
+---
+
 ## 🛠️ Tech Stack
 
 * **Backend**: Node.js (Express, BullMQ, Redis)
